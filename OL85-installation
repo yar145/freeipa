@@ -1,0 +1,109 @@
+
+
+
+[root@ipa2 ~]# systemctl stop firewalld
+[root@ipa2 ~]# systemctl disable firewalld
+
+
+
+
+
+Oracle Linux 8.5 after yum update command
+
+
+named-pkcs11.service: Failed with result 'exit-code'. апр 26 09:58:10 ipa2.tuton.cf systemd[1]:
+Failed to start Berkeley Internet Name Domain (DNS) with native PKCS#11
+
+recovery
+
+https://community.oracle.com/tech/apps-infra/discussion/4491429/ipa-server-crash-after-upgrade-to-ol8-5
+
+I was able to fix BIND startup by downgrading the bind and bind-* packages from version 9.11.26-6 to 9.11.26-4. This is only a temporary fix, but it points towards a possible regression. The discussion continues on the FreeIPA bug tracker.
+Just as an additional reference, downgrading can be made with: dnf install bind-9.11.26-4.el8_4
+
+After downgrading complete IPA upgrade with: ipa-server-upgrade and finally start IPA: systemctl start ipa.
+
+That done the job for me too.
+
+recovery
+
+https://pagure.io/freeipa/issue/9041
+
+
+ip addr
+    2  yum install net-tools
+  
+  ?  7  yum -y install epel-release
+    8  localectl set-locale LANG=en_US.UTF-8
+    9  yum install langpacks-en glibc-all-langpacks
+   
+   10  yum update -y
+  
+  11  less /etc/chrony.conf
+
+   15  systemctl status chronyd
+   16  less /etc/chrony.conf
+   17  vi  /etc/chrony.conf
+   18  service chronyd restart
+   19  systemctl restart chronyd
+  
+   23  systemctl status chronyd
+
+   27  chronyc sources -v
+  
+   29  hostnamectl set-hostname ipa2.tuton.cf
+
+   31  vi /etc/hosts 
+  
+   33  yum module enable idm:DL1
+   34  yum distro-sync
+ 
+ //  36  yum module install idm:DL1/server
+   37  yum module install idm:DL1/dns
+   
+   39  ipa-server-install 
+  
+   42  less /var/log/ipaserver-install.log
+   
+   45  systemctl start ipa.service
+
+  // 53  ipa-server-install --uninstall
+  
+  // 55  systemctl  status named-pkcs11.service
+  
+  // 57  ls /etc/ipa/dnssec/softhsm2.conf
+  // 58  less  /etc/ipa/dnssec/softhsm2.conf
+  // 59  export SOFTHSM2_CONF=/etc/ipa/dnssec/softhsm2.conf 
+  // 60  export SOFTHSM2_PIN="$(cat /var/lib/ipa/dnssec/softhsm_pin)"
+  // 61  softhsm2-util --show-slots  
+  // 62  pkcs11-list -p "${SOFTHSM2_PIN}" -s "337811534"
+  // 63  pkcs11-list -p "${SOFTHSM2_PIN}" -s "1685181299"
+  // 64  pkcs11-tokens 
+  // 65  pkcs11-list -p "${SOFTHSM2_PIN}" -l "ipaDNSSEC"
+  // 66  rpm -q bind bind-dyndb-ldap bind-pkcs11
+  // 67  dnf -yq downgrade bind
+  // 68  dnf install bind-9.11.26-4.el8_4
+  // 69  systemctl edit named-pkcs11
+  // 70  systemctl status named-pkcs11
+ 
+  // 76  vi /etc/resolv.conf 
+  
+   78  dnf install bind-9.11.26-4.el8_4
+   79  systemctl edit named-pkcs11
+   
+   [Service]
+ExecStart=
+ExecStart=/usr/sbin/named-pkcs11 -u named -E libsofthsm2.so -c ${NAMEDCONF} $OPTIONS
+   
+   80  vi /etc/resolv.conf 
+   
+   82  ipa-server-upgrade
+   86  systemctl start ipa
+   87  free
+   88  kinit admin
+   89  klist 
+   90  iptables -L
+ 
+   94  systemctl stop firewalld
+   95  systemctl disable firewalld
+   
